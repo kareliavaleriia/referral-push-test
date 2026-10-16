@@ -56,9 +56,10 @@ async function initFlow() {
   showSoftPrompt();
 }
 
-// 2. Мягкое окно — сначала объясняем, потом системный запрос
+// 2. Мягкое окно — сначала объясняем, потом системный запрос.
+// Показываем не сразу, а через 5 секунд — чтобы пользователь успел изучить страницу.
 function showSoftPrompt() {
-  setTimeout(() => { softPrompt.hidden = false; }, 800);
+  setTimeout(() => { softPrompt.hidden = false; }, 5000);
 }
 
 softPromptAllow.addEventListener('click', async () => {
