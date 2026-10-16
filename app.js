@@ -1,12 +1,8 @@
 // Логика подписки на пуши (этап 1 — механика, без VAPID)
-// v3: таймер отсчитывает 5 секунд с момента, когда страница реально видна;
-//     sw регистрируется с версией — чтобы браузер не держал старую копию.
+// v2: без мягкого окна — только системный запрос по кнопке.
 
 const subscribeBtn = document.getElementById('subscribeBtn');
 const statusDiv = document.getElementById('status');
-const softPrompt = document.getElementById('softPrompt');
-const softPromptAllow = document.getElementById('softPromptAllow');
-const softPromptLater = document.getElementById('softPromptLater');
 
 let swRegistration = null;
 
@@ -31,72 +27,37 @@ if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notifica
 async function initFlow() {
   if (!swRegistration) return;
 
-  // Уже подписан?
+  // Уже подписан? Показываем кнопку «пришли пуш»
   const sub = await swRegistration.pushManager.getSubscription();
   if (sub) {
     markSubscribed();
     return;
   }
 
-  // Уже дал разрешение, но подписки нет?
-  const permission = Notification.permission;
-  if (permission === 'granted') {
-    showSoftPrompt();
-    return;
-  }
-
-  if (permission === 'denied') {
+  if (Notification.permission === 'denied') {
     subscribeBtn.disabled = false;
     subscribeBtn.textContent = '🔕 Уведомления заблокированы';
     setStatus('Разреши уведомления для сайта в настройках браузера, затем обнови страницу');
     return;
   }
 
-  // Default — не спрашивали. Показываем мягкое окно через 5 секунд видимости.
+  // Пользователь сам решает — по клику на кнопку системный запрос
   subscribeBtn.disabled = false;
   subscribeBtn.textContent = '🔔 Разрешить уведомления';
   setStatus('Нажми, чтобы получать уведомления о рефералах');
-  showSoftPrompt();
 }
 
-// 2. Мягкое окно — появляется через 5 секунд ПОСЛЕ того, как страница
-//    действительно видна пользователю (не в момент загрузки скрипта).
-//    Если вкладка ушла в фон — таймер ждёт, пока пользователь вернётся.
-function showSoftPrompt() {
-  const show = () => { softPrompt.hidden = false; };
-
-  if (document.visibilityState === 'visible') {
-    setTimeout(show, 5000);
-  } else {
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') {
-        document.removeEventListener('visibilitychange', onVisible);
-        setTimeout(show, 5000);
-      }
-    };
-    document.addEventListener('visibilitychange', onVisible);
-  }
-}
-
-softPromptAllow.addEventListener('click', async () => {
-  softPrompt.hidden = true;
-  await requestPermissionAndSubscribe();
-});
-
-softPromptLater.addEventListener('click', () => {
-  softPrompt.hidden = true;
-  setStatus('Ок! Вернёшься — снова увидишь предложение');
-});
-
-// Основная кнопка тоже открывает мягкое окно
-subscribeBtn.addEventListener('click', () => {
-  if (Notification.permission === 'denied') return;
-  showSoftPrompt();
-});
-
-// 3. Системный запрос + подписка
-async function requestPermissionAndSubscribe() {
+// 2. По клику — сразу системный запрос + подписка (без мягкого окна)
+subscribeBtn.addEventListener('click', async () => {
   if (!swRegistration) return;
+  if (Notification.permission === 'denied') return;
+
+  // Уже подписан? Тогда кнопка работает как «пришли тестовый пуш»
+  const sub = await swRegistration.pushManager.getSubscription();
+  if (sub) {
+    testPush();
+    return;
+  }
 
   setStatus('⏳ Запрашиваем разрешение…');
 
@@ -109,26 +70,25 @@ async function requestPermissionAndSubscribe() {
   setStatus('⏳ Создаём подписку…');
 
   try {
-    const sub = await swRegistration.pushManager.subscribe({
+    const newSub = await swRegistration.pushManager.subscribe({
       userVisibleOnly: true
       // applicationServerKey — появится на этапе 2 вместе с VAPID от бэкенда
     });
-    console.log('✅ Подписка:', sub.endpoint);
+    console.log('✅ Подписка:', newSub.endpoint);
     markSubscribed();
   } catch (err) {
     console.error('❌ Ошибка подписки:', err);
     setStatus('❌ ' + err.message);
   }
-}
+});
 
 function markSubscribed() {
   subscribeBtn.textContent = '✅ Вы подписаны — пришли мне пуш!';
   subscribeBtn.disabled = false;
-  subscribeBtn.onclick = testPush;
   setStatus('Подписка активна. Жми кнопку ещё раз — придёт тестовый пуш.');
 }
 
-// 4. Тестовый пуш из Service Worker
+// 3. Тестовый пуш из Service Worker
 async function testPush() {
   await swRegistration.showNotification('🎉 Рефералка', {
     body: 'Твои 200 ₽ из 4 000 уже в прогрессе!',
