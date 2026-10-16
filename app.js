@@ -1,18 +1,23 @@
-// Логика подписки на пуши (этап 2 — с VAPID-ключом для iOS/Safari)
-// v5: applicationServerKey задан — Safari/iOS создаст подписку (раньше падало).
+// Логика подписки на пуши
+// Вариант A: по клику — НЕ мгновенный пуш, а отложенный: страница отправляет
+// в Service Worker команду «запланируй пуш через N секунд», SW ждёт и показывает
+// уведомление по истечении. Так можно проверить доставку, когда вкладка закрыта.
 
 const subscribeBtn = document.getElementById('subscribeBtn');
 const statusDiv = document.getElementById('status');
+
+// Задержка пуша после клика (в секундах) — для теста «ушёл со страницы»
+const DELAY_SECONDS = 120; // 2 минуты
 
 let swRegistration = null;
 
 function setStatus(msg) { statusDiv.textContent = msg; }
 
-// 1. Регистрация Service Worker (?v=2 заставляет браузер взять свежий sw.js)
+// 1. Регистрация Service Worker (?v=3 заставляет браузер взять свежий sw.js)
 if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
   setStatus('❌ Этот браузер не поддерживает push-уведомления');
 } else {
-  navigator.serviceWorker.register('sw.js?v=2')
+  navigator.serviceWorker.register('sw.js?v=3')
     .then(reg => {
       console.log('✅ Service Worker зарегистрирован');
       swRegistration = reg;
@@ -27,7 +32,7 @@ if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notifica
 async function initFlow() {
   if (!swRegistration) return;
 
-  // Уже подписан? Показываем кнопку «пришли пуш»
+  // Уже подписан? Показываем кнопку «запланировать пуш»
   const sub = await swRegistration.pushManager.getSubscription();
   if (sub) {
     markSubscribed();
@@ -41,21 +46,19 @@ async function initFlow() {
     return;
   }
 
-  // Пользователь сам решает — по клику на кнопку системный запрос
   subscribeBtn.disabled = false;
   subscribeBtn.textContent = '🔔 Разрешить уведомления';
   setStatus('Нажми, чтобы получать уведомления о рефералах');
 }
 
-// 2. По клику — сразу системный запрос + подписка (без мягкого окна)
+// 2. По клику — если не подписан: подписка; если подписан: планируем отложенный пуш
 subscribeBtn.addEventListener('click', async () => {
   if (!swRegistration) return;
   if (Notification.permission === 'denied') return;
 
-  // Уже подписан? Тогда кнопка работает как «пришли тестовый пуш»
   const sub = await swRegistration.pushManager.getSubscription();
   if (sub) {
-    testPush();
+    scheduleDelayPush();
     return;
   }
 
@@ -83,24 +86,29 @@ subscribeBtn.addEventListener('click', async () => {
 });
 
 function markSubscribed() {
-  subscribeBtn.textContent = '✅ Вы подписаны — пришли мне пуш!';
+  subscribeBtn.textContent = '✅ Вы подписаны — запланировать пуш';
   subscribeBtn.disabled = false;
-  setStatus('Подписка активна. Жми кнопку ещё раз — придёт тестовый пуш.');
+  setStatus('Подписка активна. Жми кнопку — пуш придёт через ' + DELAY_SECONDS + ' секунд.');
 }
 
-// 3. Тестовый пуш из Service Worker
-async function testPush() {
-  await swRegistration.showNotification('🎉 Рефералка', {
-    body: 'Твои 200 ₽ из 4 000 уже в прогрессе!',
-    icon: 'ya-icon-192.png',
-    badge: 'ya-icon-192.png',
-    vibrate: [100, 50, 100]
+// 3. Отложенный пуш: просим SW поставить таймер и показать уведомление
+function scheduleDelayPush() {
+  if (!swRegistration || !navigator.serviceWorker.controller) {
+    setStatus('❌ Service Worker не активен — невозможно запланировать');
+    return;
+  }
+
+  navigator.serviceWorker.controller.postMessage({
+    type: 'schedule-push',
+    delaySeconds: DELAY_SECONDS,
+    title: '🎉 Рефералка',
+    body: 'Это отложенный пуш — пришёл, хотя ты уже, возможно, закрыла вкладку!'
   });
-  setStatus('Уведомление отправлено — проверь системные уведомления');
+
+  setStatus('⏳ Пуш запланирован через ' + DELAY_SECONDS + ' сек. Закрой вкладку и жди.');
 }
 
 // Преобразование VAPID-ключа (base64url-строка) в Uint8Array.
-// Так требует браузер: pushManager.subscribe принимает ключ как Uint8Array.
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - base64String.length % 4) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
