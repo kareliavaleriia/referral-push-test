@@ -1,4 +1,6 @@
 // Логика подписки на пуши (этап 1 — механика, без VAPID)
+// v3: таймер отсчитывает 5 секунд с момента, когда страница реально видна;
+//     sw регистрируется с версией — чтобы браузер не держал старую копию.
 
 const subscribeBtn = document.getElementById('subscribeBtn');
 const statusDiv = document.getElementById('status');
@@ -10,11 +12,11 @@ let swRegistration = null;
 
 function setStatus(msg) { statusDiv.textContent = msg; }
 
-// 1. Регистрация Service Worker (как в опыте ЮMoney — проверяем поддержку)
+// 1. Регистрация Service Worker (?v=2 заставляет браузер взять свежий sw.js)
 if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
   setStatus('❌ Этот браузер не поддерживает push-уведомления');
 } else {
-  navigator.serviceWorker.register('sw.js')
+  navigator.serviceWorker.register('sw.js?v=2')
     .then(reg => {
       console.log('✅ Service Worker зарегистрирован');
       swRegistration = reg;
@@ -27,6 +29,8 @@ if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notifica
 }
 
 async function initFlow() {
+  if (!swRegistration) return;
+
   // Уже подписан?
   const sub = await swRegistration.pushManager.getSubscription();
   if (sub) {
@@ -37,7 +41,6 @@ async function initFlow() {
   // Уже дал разрешение, но подписки нет?
   const permission = Notification.permission;
   if (permission === 'granted') {
-    // Разрешение есть — показываем мягкое окно только для создания подписки
     showSoftPrompt();
     return;
   }
@@ -49,17 +52,30 @@ async function initFlow() {
     return;
   }
 
-  // Default — не спрашивали. Показываем мягкое окно (нюанс для iOS из опыта ЮMoney)
+  // Default — не спрашивали. Показываем мягкое окно через 5 секунд видимости.
   subscribeBtn.disabled = false;
   subscribeBtn.textContent = '🔔 Разрешить уведомления';
   setStatus('Нажми, чтобы получать уведомления о рефералах');
   showSoftPrompt();
 }
 
-// 2. Мягкое окно — сначала объясняем, потом системный запрос.
-// Показываем не сразу, а через 5 секунд — чтобы пользователь успел изучить страницу.
+// 2. Мягкое окно — появляется через 5 секунд ПОСЛЕ того, как страница
+//    действительно видна пользователю (не в момент загрузки скрипта).
+//    Если вкладка ушла в фон — таймер ждёт, пока пользователь вернётся.
 function showSoftPrompt() {
-  setTimeout(() => { softPrompt.hidden = false; }, 5000);
+  const show = () => { softPrompt.hidden = false; };
+
+  if (document.visibilityState === 'visible') {
+    setTimeout(show, 5000);
+  } else {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        document.removeEventListener('visibilitychange', onVisible);
+        setTimeout(show, 5000);
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+  }
 }
 
 softPromptAllow.addEventListener('click', async () => {
