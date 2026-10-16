@@ -1,5 +1,5 @@
-// Логика подписки на пуши (этап 1 — механика, без VAPID)
-// v2: без мягкого окна — только системный запрос по кнопке.
+// Логика подписки на пуши (этап 2 — с VAPID-ключом для iOS/Safari)
+// v5: applicationServerKey задан — Safari/iOS создаст подписку (раньше падало).
 
 const subscribeBtn = document.getElementById('subscribeBtn');
 const statusDiv = document.getElementById('status');
@@ -71,8 +71,8 @@ subscribeBtn.addEventListener('click', async () => {
 
   try {
     const newSub = await swRegistration.pushManager.subscribe({
-      userVisibleOnly: true
-      // applicationServerKey — появится на этапе 2 вместе с VAPID от бэкенда
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array('BKjnDZ5rH52ksC6H0uL-hGbwHlJASfRTxQja7mM3vYfpxXuD6V0oRkdfhIveliYi-hB7CsstmuCPSRcv1Z6wopA')
     });
     console.log('✅ Подписка:', newSub.endpoint);
     markSubscribed();
@@ -97,4 +97,17 @@ async function testPush() {
     vibrate: [100, 50, 100]
   });
   setStatus('Уведомление отправлено — проверь системные уведомления');
+}
+
+// Преобразование VAPID-ключа (base64url-строка) в Uint8Array.
+// Так требует браузер: pushManager.subscribe принимает ключ как Uint8Array.
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
 }
