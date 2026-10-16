@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Рефералка — Яндекс</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#FC3F1D">
+  <link rel="icon" href="ya-icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="ya-icon-192.png">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body {
+      font-family: 'YS Text', 'Helvetica Neue', Arial, sans-serif;
+      background: #fff;
+      color: #000;
+      max-width: 480px;
+      margin: 0 auto;
+      min-height: 100vh;
+      padding-bottom: 100px;
+    }
+
+    /* ===== Шапка ===== */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 24px 24px 20px;
+    }
+    .ya-logo {
+      width: 46px; height: 46px;
+      border-radius: 50%;
+      background: #FC3F1D;
+      display: flex; align-items: center; justify-content: center;
+      position: relative;
+    }
+    /* Буква "Я" — в макете фирменный красный круг с белой "Я" */
+    .ya-logo::after {
+      content: 'Я';
+      color: #fff;
+      font-size: 30px;
+      font-weight: 600;
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      line-height: 1;
+    }
+    .header-btn {
+      width: 42px; height: 42px;
+      border: none;
+      background: transparent;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .header-btn svg { display: block; }
+
+    /* ===== Карточка прогресса ===== */
+    .progress-card {
+      margin: 0 34px 20px;
+      background: rgba(141, 141, 141, 0.2);
+      border-radius: 22px;
+      padding: 24px 28px;
+    }
+    .progress-title {
+      font-size: 21px;
+      font-weight: 700;
+      margin-bottom: 16px;
+    }
+    .progress-amount {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+    .progress-current {
+      font-size: 43px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+    .progress-total {
+      font-size: 22px;
+      color: rgba(0,0,0,0.45);
+    }
+    .progress-bar {
+      height: 36px;
+      background: #C8C8C8;
+      border-radius: 18px;
+      padding: 4px;
+      display: flex;
+      align-items: center;
+    }
+    .progress-bar-fill {
+      height: 28px;
+      width: 81px; /* 200 из 4000 — визуально как в макете */
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 19px;
+      font-weight: 600;
+      padding: 0 16px;
+      white-space: nowrap;
+    }
+
+    /* ===== Табы-переключатели (200/2000/4000) ===== */
+    .tabs {
+      display: flex;
+      margin: 0 55px 20px;
+      background: #C8C8C8;
+      border-radius: 18px;
+      padding: 4px;
+      height: 36px;
+      align-items: center;
+    }
+    .tabs .tab-active {
+      background: #fff;
+      border-radius: 14px;
+      height: 28px;
+      display: flex; align-items: center; justify-content: center;
+      padding: 0 24px;
+      font-size: 19px;
+      font-weight: 600;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+    }
+    .tabs .tab-count {
+      color: rgba(0,0,0,0.4);
+      font-size: 19px;
+      margin-left: auto;
+      padding-right: 14px;
+    }
+
+    /* ===== Карточки разделов ===== */
+    .section-card {
+      background: rgba(141, 141, 141, 0.2);
+      border-radius: 22px;
+      margin: 0 32px 20px;
+      padding: 26px 28px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .section-card:hover { background: rgba(141, 141, 141, 0.3); }
+    .section-title {
+      font-size: 26px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+    .section-desc {
+      font-size: 17px;
+      color: rgba(0,0,0,0.6);
+      line-height: 1.45;
+    }
+
+    /* ===== Нижнее меню ===== */
+    .bottom-nav {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(348px, calc(100% - 48px));
+      background: rgba(141, 141, 141, 0.2);
+      border-radius: 27px;
+      height: 53px;
+      display: flex;
+      align-items: center;
+      padding: 6px;
+      gap: 4px;
+    }
+    .nav-item {
+      flex: 1;
+      height: 41px;
+      border: none;
+      background: transparent;
+      border-radius: 21px;
+      font-size: 20px;
+      color: inherit;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-family: inherit;
+    }
+    .nav-item.active {
+      background: #fff;
+      font-weight: 600;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+    }
+
+    /* ===== Кнопка теста пушей (добавлена для проверки) ===== */
+    .push-test {
+      margin: 0 32px 20px;
+      padding: 16px 20px;
+      background: #FC3F1D;
+      color: #fff;
+      border-radius: 18px;
+      text-align: center;
+      font-size: 18px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      display: block;
+      width: calc(100% - 64px);
+      font-family: inherit;
+    }
+    .push-test:disabled { background: #C8C8C8; color: rgba(0,0,0,0.4); cursor: not-allowed; }
+    .push-status {
+      margin: 0 32px 24px;
+      font-size: 15px;
+      color: rgba(0,0,0,0.5);
+      text-align: center;
+      min-height: 20px;
+    }
+
+    /* ===== Мягкое окно (soft prompt) ===== */
+    .soft-prompt {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      z-index: 1000;
+    }
+    .soft-prompt-card {
+      background: #fff;
+      border-radius: 22px;
+      padding: 28px 24px;
+      width: min(340px, 100%);
+      text-align: center;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.25);
+    }
+    .soft-prompt-icon { font-size: 44px; margin-bottom: 14px; }
+    .soft-prompt-title { font-size: 21px; font-weight: 700; margin-bottom: 8px; }
+    .soft-prompt-text { font-size: 16px; color: rgba(0,0,0,0.6); line-height: 1.5; margin-bottom: 20px; }
+    .soft-prompt-btn {
+      width: 100%;
+      height: 48px;
+      border: none;
+      border-radius: 24px;
+      background: #FC3F1D;
+      color: #fff;
+      font-size: 17px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .soft-prompt-later {
+      margin-top: 12px;
+      background: transparent;
+      border: none;
+      color: rgba(0,0,0,0.5);
+      font-size: 15px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Шапка: логотип "Я" + поиск -->
+  <div class="header">
+    <div class="ya-logo" aria-label="Я"></div>
+    <button class="header-btn" aria-label="Поиск">
+      <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="12.5" cy="12.5" r="7.15" stroke="#747474" stroke-width="2.3"/>
+        <path d="M17.5 17.5 L23 23" stroke="#747474" stroke-width="2.3" stroke-linecap="round"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- Карточка прогресса -->
+  <div class="progress-card">
+    <div class="progress-title">Ваш прогресс</div>
+    <div class="progress-amount">
+      <span class="progress-current" id="progressCurrent">200</span>
+      <span class="progress-total">/ 4 000 ₽</span>
+    </div>
+    <div class="progress-bar">
+      <div class="progress-bar-fill">200</div>
+    </div>
+  </div>
+
+  <!-- Табы сумм -->
+  <div class="tabs">
+    <div class="tab-active">200 ₽</div>
+    <div class="tab-count">4 000 ₽</div>
+  </div>
+
+  <!-- Разделы (некликабельные пока) -->
+  <div class="section-card">
+    <div class="section-title">Как это работает</div>
+    <div class="section-desc">Приглашайте друзей, получайте бонусы за каждого.</div>
+  </div>
+
+  <div class="section-card">
+    <div class="section-title">FAQ</div>
+    <div class="section-desc">Частые вопросы о реферальной программе.</div>
+  </div>
+
+  <!-- Тест пушей -->
+  <button class="push-test" id="subscribeBtn" disabled>🔔 Разрешить уведомления</button>
+  <div class="push-status" id="status">Готовим…</div>
+
+  <!-- Мягкое окно перед системным запросом (нюанс из опыта ЮMoney для iOS) -->
+  <div class="soft-prompt" id="softPrompt" hidden>
+    <div class="soft-prompt-card">
+      <div class="soft-prompt-icon">🔔</div>
+      <div class="soft-prompt-title">Не пропустите важное</div>
+      <div class="soft-prompt-text">Подпишитесь на уведомления, чтобы узнавать о новых рефералах и наградах первыми.</div>
+      <button class="soft-prompt-btn" id="softPromptAllow">Разрешить уведомления</button>
+      <button class="soft-prompt-later" id="softPromptLater">Позже</button>
+    </div>
+  </div>
+
+  <!-- Нижнее меню -->
+  <div class="bottom-nav">
+    <button class="nav-item active">Ссылка</button>
+    <button class="nav-item">Статистика</button>
+    <button class="nav-item">Выплаты</button>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
