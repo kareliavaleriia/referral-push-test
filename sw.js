@@ -4,8 +4,6 @@
 function showReferralPush(title, body) {
   const options = {
     body: body || 'Новое уведомление',
-    icon: 'ya-icon-192.png',
-    badge: 'ya-icon-192.png',
     vibrate: [100, 50, 100],
     data: { url: '/' },
     tag: 'referral-push'
