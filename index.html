@@ -3,13 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Яндекс Поиск </title>
+  <title>Рефералка — Яндекс</title>
   <link rel="manifest" href="manifest.json?v=2">
   <meta name="theme-color" content="#FC3F1D">
   <link rel="icon" href="ya-icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="ya-icon-192.png?v=2">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    /* Важно: атрибут hidden должен реально прятать элемент,
+       иначе display:flex у попапа перебивает его и окно видно сразу */
+    [hidden] { display: none !important; }
     body {
       font-family: 'YS Text', 'Helvetica Neue', Arial, sans-serif;
       background: #fff;
@@ -182,7 +185,7 @@
       box-shadow: 0 2px 8px rgba(0,0,0,0.10);
     }
 
-    /* ===== Кнопка теста пушей ===== */
+    /* ===== Кнопка теста пушей (добавлена для проверки) ===== */
     .push-test {
       margin: 0 32px 20px;
       padding: 16px 20px;
@@ -206,13 +209,13 @@
       text-align: center;
       min-height: 20px;
     }
-  </style>
+    
+    </style>
 </head>
 <body>
 
-  <!-- Шапка: логотип "Я" + поиск -->
+  <!-- Шапка: поиск -->
   <div class="header">
-    <div class="ya-logo" aria-label="Я"></div>
     <button class="header-btn" aria-label="Поиск">
       <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
         <circle cx="12.5" cy="12.5" r="7.15" stroke="#747474" stroke-width="2.3"/>
@@ -261,6 +264,6 @@
     <button class="nav-item">Выплаты</button>
   </div>
 
-  <script src="app.js?v=12"></script>
+  <script src="app.js?v=11"></script>
 </body>
 </html>
