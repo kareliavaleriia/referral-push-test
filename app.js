@@ -1,19 +1,20 @@
-// Логика подписки на пуши
-// Вариант A: по клику — НЕ мгновенный пуш, а отложенный: страница отправляет
-// в Service Worker команду «запланируй пуш через N секунд», SW ждёт и показывает
-// уведомление по истечении. Так можно проверить доставку, когда вкладка закрыта.
+// Логика подписки на пуши — вариант «показ сразу при клике» (без сервера).
+// Клик по кнопке:
+//   1) подписывает (если ещё нет) через VAPID;
+//   2) сразу показывает пуш через Service Worker (showNotification).
+//
+// Работает везде, где есть HTTPS (в т.ч. GitHub Pages) и НЕ требует сервера.
+// Ограничение: уведомление показывается, только пока вкладка/ярлык открыт;
+// если закрыть — мгновенный пуш не "догонит". (Отложенный фоновый пуш,
+// который приходит при закрытой вкладке, делает сервер — см. Вариант B.)
 
 const subscribeBtn = document.getElementById('subscribeBtn');
-const statusDiv = document.getElementById('status');
-
-// Задержка пуша после клика (в секундах) — для теста «ушёл со страницы»
-const DELAY_SECONDS = 120; // 2 минуты
+const statusLine = document.getElementById('status');
 
 let swRegistration = null;
 
-function setStatus(msg) { statusDiv.textContent = msg; }
+function setStatus(msg) { statusLine.textContent = msg; }
 
-// 1. Регистрация Service Worker (?v=3 заставляет браузер взять свежий sw.js)
 if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
   setStatus('❌ Этот браузер не поддерживает push-уведомления');
 } else {
@@ -32,7 +33,6 @@ if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notifica
 async function initFlow() {
   if (!swRegistration) return;
 
-  // Уже подписан? Показываем кнопку «запланировать пуш»
   const sub = await swRegistration.pushManager.getSubscription();
   if (sub) {
     markSubscribed();
@@ -48,64 +48,65 @@ async function initFlow() {
 
   subscribeBtn.disabled = false;
   subscribeBtn.textContent = '🔔 Разрешить уведомления';
-  setStatus('Нажми, чтобы получать уведомления о рефералах');
+  setStatus('Нажми — и получи пуш «Нашли ответ»');
 }
 
-// 2. По клику — если не подписан: подписка; если подписан: планируем отложенный пуш
 subscribeBtn.addEventListener('click', async () => {
   if (!swRegistration) return;
   if (Notification.permission === 'denied') return;
 
-  const sub = await swRegistration.pushManager.getSubscription();
-  if (sub) {
-    scheduleDelayPush();
-    return;
+  let sub = await swRegistration.pushManager.getSubscription();
+
+  if (!sub) {
+    setStatus('⏳ Запрашиваем разрешение…');
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') {
+      setStatus('❌ Разрешение не дано — пуши не придут');
+      return;
+    }
+
+    setStatus('⏳ Создаём подписку…');
+    try {
+      sub = await swRegistration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array('BKjnDZ5rH52ksC6H0uL-hGbwHlJASfRTxQja7mM3vYfpxXuD6V0oRkdfhIveliYi-hB7CsstmuCPSRcv1Z6wopA')
+      });
+      console.log('✅ Подписка:', sub.endpoint);
+    } catch (err) {
+      console.error('❌ Ошибка подписки:', err);
+      setStatus('❌ ' + err.message);
+      return;
+    }
   }
 
-  setStatus('⏳ Запрашиваем разрешение…');
+  markSubscribed();
 
-  const permission = await Notification.requestPermission();
-  if (permission !== 'granted') {
-    setStatus('❌ Разрешение не дано — пуши не придут');
-    return;
-  }
-
-  setStatus('⏳ Создаём подписку…');
-
-  try {
-    const newSub = await swRegistration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array('BKjnDZ5rH52ksC6H0uL-hGbwHlJASfRTxQja7mM3vYfpxXuD6V0oRkdfhIveliYi-hB7CsstmuCPSRcv1Z6wopA')
-    });
-    console.log('✅ Подписка:', newSub.endpoint);
-    markSubscribed();
-  } catch (err) {
-    console.error('❌ Ошибка подписки:', err);
-    setStatus('❌ ' + err.message);
-  }
+  // Показать пуш сразу при клике — напрямую через Service Worker
+  await showLocalPush();
 });
 
 function markSubscribed() {
-  subscribeBtn.textContent = '✅ Вы подписаны — запланировать пуш';
+  subscribeBtn.textContent = '🔔 Получить пуш «Нашли ответ»';
   subscribeBtn.disabled = false;
-  setStatus('Подписка активна. Жми кнопку — пуш придёт через ' + DELAY_SECONDS + ' секунд.');
 }
 
-// 3. Отложенный пуш: просим SW поставить таймер и показать уведомление
-function scheduleDelayPush() {
-  if (!swRegistration || !navigator.serviceWorker.controller) {
-    setStatus('❌ Service Worker не активен — невозможно запланировать');
-    return;
+// Показать уведомление прямо из страницы (без сервера и POST-запросов).
+async function showLocalPush() {
+  try {
+    setStatus('⏳ Показываем уведомление…');
+    await swRegistration.showNotification('Нашли ответ...', {
+      body: 'на Ваш вопрос — уже в Яндекс Поиске',
+      icon: 'ya-icon-192.png',
+      badge: 'ya-icon-192.png',
+      vibrate: [100, 50, 100],
+      data: { url: '/' },
+      tag: 'referral-push'
+    });
+    setStatus('✅ Пуш «Нашли ответ...» показан! Нажми ещё раз, чтобы показать снова.');
+  } catch (err) {
+    console.error('❌ Не удалось показать уведомление:', err);
+    setStatus('❌ Не удалось показать уведомление: ' + err.message);
   }
-
-  navigator.serviceWorker.controller.postMessage({
-    type: 'schedule-push',
-    delaySeconds: DELAY_SECONDS,
-    title: '🎉 Рефералка',
-    body: 'Это отложенный пуш — пришёл, хотя ты уже, возможно, закрыла вкладку!'
-  });
-
-  setStatus('⏳ Пуш запланирован через ' + DELAY_SECONDS + ' сек. Закрой вкладку и жди.');
 }
 
 // Преобразование VAPID-ключа (base64url-строка) в Uint8Array.
